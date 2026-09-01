@@ -1,30 +1,75 @@
+import os
+import random
+import time
+
+import numpy as np
 import torch
+
+from datasets import load_dataset
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
-from datasets import load_dataset
+from tqdm.auto import tqdm
 
 from src.batch import data_collator
 from src.evaluate import evaluate_model
 from src.model import get_model
-from src.preprocess import DATASET_NAME, preprocess_dataset
+from src.preprocess import (
+    DATASET_NAME,
+    preprocess_dataset,
+)
 
 
-BATCH_SIZE = 8
+# =====================
+# Configuration
+# =====================
+
+BATCH_SIZE = 16
 LEARNING_RATE = 5e-5
 EPOCHS = 3
 
 CHECKPOINT_PATH = "outputs/best_model"
 
+SEED = 42
+
+
+# =====================
+# Reproducibility
+# =====================
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(SEED)
+
+
+# =====================
+# Device
+# =====================
 
 device = torch.device(
     "cuda" if torch.cuda.is_available()
     else "cpu"
 )
 
+print(f"Using device: {device}")
+
+
+# =====================
+# Dataset
+# =====================
 
 dataset = load_dataset(DATASET_NAME)
 
-tokenized_dataset = preprocess_dataset(dataset)
+tokenized_dataset = preprocess_dataset(
+    dataset
+)
 
 
 train_loader = DataLoader(
@@ -43,7 +88,12 @@ validation_loader = DataLoader(
 )
 
 
+# =====================
+# Model
+# =====================
+
 model = get_model()
+
 model.to(device)
 
 
@@ -53,21 +103,34 @@ optimizer = AdamW(
 )
 
 
-best_f1 = 0
+best_f1 = 0.0
 
+
+# =====================
+# Training Loop
+# =====================
 
 for epoch in range(EPOCHS):
+
+    start_time = time.time()
 
     print(
         f"\nEpoch {epoch + 1}/{EPOCHS}"
     )
 
+
     model.train()
 
-    total_loss = 0
+    total_loss = 0.0
 
 
-    for batch_index, batch in enumerate(train_loader):
+    progress_bar = tqdm(
+        train_loader,
+        desc="Training",
+    )
+
+
+    for batch in progress_bar:
 
         batch = {
             key: value.to(device)
@@ -92,6 +155,11 @@ for epoch in range(EPOCHS):
         total_loss += loss.item()
 
 
+        progress_bar.set_postfix(
+            loss=f"{loss.item():.4f}"
+        )
+
+
     average_loss = (
         total_loss / len(train_loader)
     )
@@ -101,6 +169,10 @@ for epoch in range(EPOCHS):
         f"Train Loss: {average_loss:.4f}"
     )
 
+
+    # =====================
+    # Validation
+    # =====================
 
     precision, recall, f1 = evaluate_model(
         model,
@@ -122,14 +194,37 @@ for epoch in range(EPOCHS):
     )
 
 
+    elapsed = time.time() - start_time
+
+    print(
+        f"Epoch time: {elapsed / 60:.2f} minutes"
+    )
+
+
+    # =====================
+    # Save Best Model
+    # =====================
+
     if f1 > best_f1:
 
         best_f1 = f1
 
-        print(
-            "Saving best model..."
+        os.makedirs(
+            CHECKPOINT_PATH,
+            exist_ok=True,
         )
+
+
+        print(
+            f"Saving best model with F1={f1:.4f}"
+        )
+
 
         model.save_pretrained(
             CHECKPOINT_PATH
         )
+
+
+print(
+    f"\nBest validation F1: {best_f1:.4f}"
+)
