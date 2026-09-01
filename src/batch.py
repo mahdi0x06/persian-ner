@@ -8,28 +8,30 @@ from src.preprocess import (
 )
 
 
-dataset = load_dataset(DATASET_NAME)
-tokenized_dataset = preprocess_dataset(dataset)
-
 data_collator = DataCollatorForTokenClassification(
     tokenizer=tokenizer
 )
 
-samples = [
-    tokenized_dataset["train"][0],
-    tokenized_dataset["train"][1],
-]
 
-batch = data_collator(samples)
+if __name__ == "__main__":
+    dataset = load_dataset(DATASET_NAME)
+    tokenized_dataset = preprocess_dataset(dataset)
 
-print("Batch keys:")
-print(batch.keys())
+    samples = [
+        tokenized_dataset["train"][0],
+        tokenized_dataset["train"][1],
+    ]
 
-print("\nInput IDs shape:")
-print(batch["input_ids"].shape)
+    batch = data_collator(samples)
 
-print("\nAttention mask:")
-print(batch["attention_mask"])
+    print("Batch keys:")
+    print(batch.keys())
 
-print("\nLabels:")
-print(batch["labels"])
+    print("\nInput IDs shape:")
+    print(batch["input_ids"].shape)
+
+    print("\nAttention mask:")
+    print(batch["attention_mask"])
+
+    print("\nLabels:")
+    print(batch["labels"])
