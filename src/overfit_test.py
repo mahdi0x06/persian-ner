@@ -1,6 +1,7 @@
 import torch
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
+
 from datasets import load_dataset
 
 from src.batch import data_collator
@@ -9,11 +10,9 @@ from src.model import get_model
 from src.preprocess import DATASET_NAME, preprocess_dataset
 
 
-BATCH_SIZE = 8
+BATCH_SIZE = 2
 LEARNING_RATE = 5e-5
-EPOCHS = 3
-
-CHECKPOINT_PATH = "outputs/best_model"
+EPOCHS = 20
 
 
 device = torch.device(
@@ -23,22 +22,18 @@ device = torch.device(
 
 
 dataset = load_dataset(DATASET_NAME)
-
 tokenized_dataset = preprocess_dataset(dataset)
 
 
-train_loader = DataLoader(
-    tokenized_dataset["train"],
-    batch_size=BATCH_SIZE,
-    shuffle=True,
-    collate_fn=data_collator,
+small_dataset = tokenized_dataset["train"].select(
+    range(10)
 )
 
 
-validation_loader = DataLoader(
-    tokenized_dataset["validation"],
+train_loader = DataLoader(
+    small_dataset,
     batch_size=BATCH_SIZE,
-    shuffle=False,
+    shuffle=True,
     collate_fn=data_collator,
 )
 
@@ -53,83 +48,49 @@ optimizer = AdamW(
 )
 
 
-best_f1 = 0
+model.train()
 
 
 for epoch in range(EPOCHS):
 
-    print(
-        f"\nEpoch {epoch + 1}/{EPOCHS}"
-    )
-
-    model.train()
-
     total_loss = 0
 
-
-    for batch_index, batch in enumerate(train_loader):
+    for batch in train_loader:
 
         batch = {
             key: value.to(device)
             for key, value in batch.items()
         }
 
-
         optimizer.zero_grad()
-
 
         outputs = model(**batch)
 
         loss = outputs.loss
 
-
         loss.backward()
 
-
         optimizer.step()
-
 
         total_loss += loss.item()
 
 
-    average_loss = (
-        total_loss / len(train_loader)
-    )
-
+    avg_loss = total_loss / len(train_loader)
 
     print(
-        f"Train Loss: {average_loss:.4f}"
+        f"Epoch {epoch + 1}/{EPOCHS} "
+        f"| Loss: {avg_loss:.4f}"
     )
 
 
-    precision, recall, f1 = evaluate_model(
-        model,
-        validation_loader,
-        device,
-    )
+precision, recall, f1 = evaluate_model(
+    model,
+    train_loader,
+    device,
+)
 
 
-    print(
-        f"Precision: {precision:.4f}"
-    )
-
-    print(
-        f"Recall: {recall:.4f}"
-    )
-
-    print(
-        f"F1: {f1:.4f}"
-    )
-
-
-    if f1 > best_f1:
-
-        best_f1 = f1
-
-        print(
-            "Saving best model..."
-        )
-
-        model.save_pretrained(
-            CHECKPOINT_PATH
-        )
+print("\nOverfit result:")
+print(f"Precision: {precision:.4f}")
+print(f"Recall:    {recall:.4f}")
+print(f"F1:        {f1:.4f}")
