@@ -16,6 +16,7 @@ from src.model import get_model
 from src.preprocess import (
     DATASET_NAME,
     preprocess_dataset,
+    tokenizer,
 )
 
 
@@ -223,6 +224,7 @@ for epoch in range(EPOCHS):
         model.save_pretrained(
             CHECKPOINT_PATH
         )
+        tokenizer.save_pretrained(CHECKPOINT_PATH)
 
 
 print(

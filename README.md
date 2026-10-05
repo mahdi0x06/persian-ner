@@ -63,7 +63,7 @@ This prevents duplicated supervision for words that are split into multiple subw
 
 CUDA is used automatically when available; otherwise, the code falls back to CPU.
 
-The best checkpoint is saved to:
+The best model and its tokenizer are saved together to:
 
 ```text
 outputs/best_model/
@@ -164,3 +164,4 @@ Some low-level GPU operations can still be nondeterministic unless stricter PyTo
 ## License
 
 This project is released under the [MIT License](LICENSE).
+
